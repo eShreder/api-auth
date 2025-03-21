@@ -178,4 +178,39 @@ go build -o user-server cmd/server/main.go
 
 ```
 go build -o create-invite cmd/invite/main.go
-``` 
+```
+
+## Docker
+
+### Building the Image
+
+```bash
+docker build -t user-server .
+```
+
+### Running the Container
+
+```bash
+docker run -d \
+  --name user-server \
+  -p 8080:8080 \
+  -v $(pwd)/keys:/app/keys \
+  -v $(pwd)/data:/app/data \
+  --env-file .env \
+  user-server
+```
+
+### Environment Variables
+
+Create a `.env` file based on `.env.example` and configure the following variables:
+
+- `PORT` - server port (default: 8080)
+- `DB_PATH` - path to the database file (default: data/users.db)
+- `JWT_SECRET` - secret key for JWT tokens
+- `RSA_PRIVATE_KEY_PATH` - path to the RSA private key
+- `RSA_PUBLIC_KEY_PATH` - path to the RSA public key
+
+### Volume Mounts
+
+- `keys/` - directory for RSA keys
+- `data/` - directory for SQLite database 
