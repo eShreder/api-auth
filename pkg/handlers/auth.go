@@ -19,13 +19,13 @@ type AuthHandler struct {
 }
 
 type RegisterRequest struct {
-	Email     string `json:"email" binding:"required,email"`
+	Username     string `json:"username" binding:"required,min=3,max=32"`
 	Password  string `json:"password" binding:"required,min=8"`
 	InviteToken string `json:"invite_token" binding:"required"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	Username    string `json:"username" binding:"required,min=3,max=32"`
 	Password string `json:"password" binding:"required"`
 }
 
@@ -60,9 +60,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	_, err = h.DB.GetUserByEmail(req.Email)
+	_, err = h.DB.GetUserByUsername(req.Username)
 	if err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User with this email already exists"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User with this username already exists"})
 		return
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		log.Printf("Error checking user existence: %v", err)
@@ -78,7 +78,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	user := &models.User{
-		Email:    req.Email,
+		Username:    req.Username,
 		Password: hashedPassword,
 	}
 
@@ -92,7 +92,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		log.Printf("Error marking token as used: %v", err)
 	}
 
-	token, err := h.JWTManager.GenerateToken(user.ID, user.Email)
+	token, err := h.JWTManager.GenerateToken(user.ID, user.Username)
 	if err != nil {
 		log.Printf("Error generating token: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -109,10 +109,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	user, err := h.DB.GetUserByEmail(req.Email)
+	user, err := h.DB.GetUserByUsername(req.Username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 			return
 		}
 		log.Printf("Error getting user: %v", err)
@@ -121,11 +121,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	if err := auth.CheckPassword(req.Password, user.Password); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return
 	}
 
-	token, err := h.JWTManager.GenerateToken(user.ID, user.Email)
+	token, err := h.JWTManager.GenerateToken(user.ID, user.Username)
 	if err != nil {
 		log.Printf("Error generating token: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -160,7 +160,7 @@ func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
 		}
 
 		c.Set("user_id", claims.UserID)
-		c.Set("email", claims.Email)
+		c.Set("username", claims.Username)
 
 		c.Next()
 	}
@@ -168,11 +168,11 @@ func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
 
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	email, _ := c.Get("email")
+	username, _ := c.Get("username")
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":    userID,
-		"email": email,
+		"id":       userID,
+		"username": username,
 	})
 }
 

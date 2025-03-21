@@ -31,7 +31,7 @@ func (db *DB) Initialize() error {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			email TEXT UNIQUE NOT NULL,
+			username TEXT UNIQUE NOT NULL,
 			password TEXT NOT NULL,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
@@ -64,8 +64,8 @@ func (db *DB) CreateUser(user *models.User) error {
 	user.UpdatedAt = now
 
 	result, err := db.Exec(
-		"INSERT INTO users (email, password, created_at, updated_at) VALUES (?, ?, ?, ?)",
-		user.Email, user.Password, user.CreatedAt, user.UpdatedAt,
+		"INSERT INTO users (username, password, created_at, updated_at) VALUES (?, ?, ?, ?)",
+		user.Username, user.Password, user.CreatedAt, user.UpdatedAt,
 	)
 	if err != nil {
 		return err
@@ -80,12 +80,12 @@ func (db *DB) CreateUser(user *models.User) error {
 	return nil
 }
 
-func (db *DB) GetUserByEmail(email string) (*models.User, error) {
+func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 	user := &models.User{}
 	err := db.QueryRow(
-		"SELECT id, email, password, created_at, updated_at FROM users WHERE email = ?",
-		email,
-	).Scan(&user.ID, &user.Email, &user.Password, &user.CreatedAt, &user.UpdatedAt)
+		"SELECT id, username, password, created_at, updated_at FROM users WHERE username = ?",
+		username,
+	).Scan(&user.ID, &user.Username, &user.Password, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
