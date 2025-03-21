@@ -1,4 +1,4 @@
-# User Server API
+# User Server API (by claude)
 
 Simple Go API for user registration and authentication using JWT tokens and SQLite.
 
