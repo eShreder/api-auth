@@ -158,4 +158,22 @@ func GenerateRandomToken(length int) (string, error) {
 	}
 	
 	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+func GenerateRefreshToken() (string, error) {
+	return GenerateRandomToken(32)
+}
+
+func (m *JWTManager) GenerateTokenPair(userID int64, username string) (string, string, error) {
+	accessToken, err := m.GenerateToken(userID, username)
+	if err != nil {
+		return "", "", fmt.Errorf("error generating access token: %w", err)
+	}
+
+	refreshToken, err := GenerateRefreshToken()
+	if err != nil {
+		return "", "", fmt.Errorf("error generating refresh token: %w", err)
+	}
+
+	return accessToken, refreshToken, nil
 } 

@@ -50,6 +50,7 @@ func main() {
 
 	router.POST("/api/auth/register", authHandler.Register)
 	router.POST("/api/auth/login", authHandler.Login)
+	router.POST("/api/auth/refresh", authHandler.Refresh)
 	router.GET("/api/auth/public-key", authHandler.GetPublicKey)
 
 	protected := router.Group("/api")

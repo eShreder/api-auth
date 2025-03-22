@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/user/user-server/pkg/auth"
@@ -30,11 +31,17 @@ type LoginRequest struct {
 }
 
 type TokenResponse struct {
-	Token string `json:"token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
 }
 
 type PublicKeyResponse struct {
 	Key string `json:"key"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -92,14 +99,27 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		log.Printf("Error marking token as used: %v", err)
 	}
 
-	token, err := h.JWTManager.GenerateToken(user.ID, user.Username)
+	accessToken, refreshToken, err := h.JWTManager.GenerateTokenPair(user.ID, user.Username)
 	if err != nil {
-		log.Printf("Error generating token: %v", err)
+		log.Printf("Error generating tokens: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, TokenResponse{Token: token})
+	// Сохраняем refresh токен в базе данных
+	refreshTokenExpiresAt := time.Now().Add(30 * 24 * time.Hour) // 30 дней
+	_, err = h.DB.CreateRefreshToken(user.ID, refreshToken, refreshTokenExpiresAt)
+	if err != nil {
+		log.Printf("Error saving refresh token: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, TokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    int64(h.JWTManager.tokenTTL.Seconds()),
+	})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -125,14 +145,85 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.JWTManager.GenerateToken(user.ID, user.Username)
+	accessToken, refreshToken, err := h.JWTManager.GenerateTokenPair(user.ID, user.Username)
 	if err != nil {
-		log.Printf("Error generating token: %v", err)
+		log.Printf("Error generating tokens: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	c.JSON(http.StatusOK, TokenResponse{Token: token})
+	// Сохраняем refresh токен в базе данных
+	refreshTokenExpiresAt := time.Now().Add(30 * 24 * time.Hour) // 30 дней
+	_, err = h.DB.CreateRefreshToken(user.ID, refreshToken, refreshTokenExpiresAt)
+	if err != nil {
+		log.Printf("Error saving refresh token: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, TokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    int64(h.JWTManager.tokenTTL.Seconds()),
+	})
+}
+
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	refreshToken, err := h.DB.GetRefreshToken(req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+			return
+		}
+		log.Printf("Error getting refresh token: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	if time.Now().After(refreshToken.ExpiresAt) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token expired"})
+		return
+	}
+
+	user, err := h.DB.GetUserByID(refreshToken.UserID)
+	if err != nil {
+		log.Printf("Error getting user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	accessToken, newRefreshToken, err := h.JWTManager.GenerateTokenPair(user.ID, user.Username)
+	if err != nil {
+		log.Printf("Error generating tokens: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// Удаляем старый refresh токен
+	if err := h.DB.DeleteRefreshToken(req.RefreshToken); err != nil {
+		log.Printf("Error deleting old refresh token: %v", err)
+	}
+
+	// Сохраняем новый refresh токен
+	refreshTokenExpiresAt := time.Now().Add(30 * 24 * time.Hour) // 30 дней
+	_, err = h.DB.CreateRefreshToken(user.ID, newRefreshToken, refreshTokenExpiresAt)
+	if err != nil {
+		log.Printf("Error saving new refresh token: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, TokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		ExpiresIn:    int64(h.JWTManager.tokenTTL.Seconds()),
+	})
 }
 
 func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
