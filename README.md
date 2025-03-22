@@ -1,6 +1,7 @@
-# User Server API (by claude)
+# User Server API
+(by claude)
 
-Simple Go API for user registration and authentication using JWT tokens and SQLite.
+A simple Go API for user registration and authentication using JWT tokens and SQLite.
 
 ## Features
 
@@ -11,34 +12,35 @@ Simple Go API for user registration and authentication using JWT tokens and SQLi
 - Invite tokens creation only via command line
 - Configuration via `.env` file or command line flags
 - Public key endpoint for token verification in other services
+- Refresh token support for extended sessions
 
 ## Requirements
 
-- Go 1.16 or higher
+- Go 1.24 or higher
 - SQLite
 
 ## Installation
 
 1. Clone the repository:
-```
+```bash
 git clone https://github.com/user/user-server.git
 cd user-server
 ```
 
 2. Install dependencies:
-```
+```bash
 go mod tidy
 ```
 
 3. Generate RSA keys (if you haven't done so already):
-```
+```bash
 mkdir -p keys
 openssl genpkey -algorithm RSA -out keys/private.pem -pkeyopt rsa_keygen_bits:2048
 openssl rsa -pubout -in keys/private.pem -out keys/public.pem
 ```
 
 4. Create `.env` file based on the example:
-```
+```bash
 cp .env.example .env
 ```
 
@@ -47,7 +49,7 @@ cp .env.example .env
 The application can be configured in two ways:
 
 1. Via `.env` file:
-```
+```env
 # Path to SQLite database file
 DB_PATH=user-server.db
 
@@ -77,13 +79,13 @@ Command line flags take precedence over values from the `.env` file.
 
 ### Starting the server
 
-```
+```bash
 go run cmd/server/main.go
 ```
 
 ### Creating an invite token
 
-```
+```bash
 go run cmd/invite/main.go
 ```
 
@@ -98,7 +100,7 @@ POST /api/auth/register
 Request body:
 ```json
 {
-  "email": "user@example.com",
+  "username": "johndoe",
   "password": "password123",
   "invite_token": "your_invite_token"
 }
@@ -107,7 +109,9 @@ Request body:
 Response:
 ```json
 {
-  "token": "jwt_token"
+  "access_token": "jwt_token",
+  "refresh_token": "refresh_token",
+  "expires_in": 86400
 }
 ```
 
@@ -120,7 +124,7 @@ POST /api/auth/login
 Request body:
 ```json
 {
-  "email": "user@example.com",
+  "username": "johndoe",
   "password": "password123"
 }
 ```
@@ -128,7 +132,31 @@ Request body:
 Response:
 ```json
 {
-  "token": "jwt_token"
+  "access_token": "jwt_token",
+  "refresh_token": "refresh_token",
+  "expires_in": 86400
+}
+```
+
+### Refresh Token
+
+```
+POST /api/auth/refresh
+```
+
+Request body:
+```json
+{
+  "refresh_token": "your_refresh_token"
+}
+```
+
+Response:
+```json
+{
+  "access_token": "new_jwt_token",
+  "refresh_token": "new_refresh_token",
+  "expires_in": 86400
 }
 ```
 
@@ -147,7 +175,7 @@ Response:
 ```json
 {
   "id": 1,
-  "email": "user@example.com"
+  "username": "johndoe"
 }
 ```
 
@@ -170,13 +198,13 @@ This endpoint returns the RSA public key in PEM format, which can be used by oth
 
 ### Building the server
 
-```
+```bash
 go build -o user-server cmd/server/main.go
 ```
 
 ### Building the invite token creation utility
 
-```
+```bash
 go build -o create-invite cmd/invite/main.go
 ```
 
@@ -204,11 +232,11 @@ docker run -d \
 
 Create a `.env` file based on `.env.example` and configure the following variables:
 
-- `PORT` - server port (default: 8080)
-- `DB_PATH` - path to the database file (default: data/users.db)
-- `JWT_SECRET` - secret key for JWT tokens
-- `RSA_PRIVATE_KEY_PATH` - path to the RSA private key
-- `RSA_PUBLIC_KEY_PATH` - path to the RSA public key
+- `DB_PATH` - path to the database file (default: user-server.db)
+- `PRIVATE_KEY_PATH` - path to the RSA private key
+- `PUBLIC_KEY_PATH` - path to the RSA public key
+- `ADDR` - HTTP listen address (default: :8080)
+- `JWT_TTL` - JWT token lifetime in hours (default: 24)
 
 ### Volume Mounts
 
