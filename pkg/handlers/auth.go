@@ -118,7 +118,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    int64(h.JWTManager.tokenTTL.Seconds()),
+		ExpiresIn:    int64(h.JWTManager.GetTokenTTL().Seconds()),
 	})
 }
 
@@ -164,7 +164,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    int64(h.JWTManager.tokenTTL.Seconds()),
+		ExpiresIn:    int64(h.JWTManager.GetTokenTTL().Seconds()),
 	})
 }
 
@@ -222,7 +222,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	c.JSON(http.StatusOK, TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: newRefreshToken,
-		ExpiresIn:    int64(h.JWTManager.tokenTTL.Seconds()),
+		ExpiresIn:    int64(h.JWTManager.GetTokenTTL().Seconds()),
 	})
 }
 
