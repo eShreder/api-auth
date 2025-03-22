@@ -57,18 +57,18 @@ user-server/
 
 ### API Endpoints
 ```
-POST /api/v1/auth/register - User registration
-POST /api/v1/auth/login    - User authentication
-GET  /api/v1/auth/key      - Get public RSA key
+POST /api/auth/register     - User registration
+POST /api/auth/login        - User authentication
+GET  /api/auth/public-key   - Get public RSA key
 ```
 
 ### Environment Variables
 Required environment variables:
 - `PORT` - Server port (default: 8080)
 - `DB_PATH` - SQLite database path
-- `JWT_SECRET` - JWT signing secret
-- `RSA_PRIVATE_KEY_PATH` - Path to RSA private key
-- `RSA_PUBLIC_KEY_PATH` - Path to RSA public key
+- `JWT_TTL` - JWT lifetime in hours
+- `PRIVATE_KEY_PATH` - Path to RSA private key
+- `PUBLIC_KEY_PATH` - Path to RSA public key
 
 ### Dependencies
 - Go 1.24+
@@ -134,6 +134,3 @@ docker run -d \
 3. Make changes
 4. Run tests
 5. Submit pull request
-
-## License
-[Specify License] 
